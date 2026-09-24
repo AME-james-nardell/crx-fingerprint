@@ -33,7 +33,7 @@ https://chromewebstore.google.com/detail/some-extension/dbjlkjnlhjgnabhmibofkhfg
 
 For each extension:
 
-- **Name, version, manifest version**
+- **Name, version, manifest version** — a localised name stored as `__MSG_appName__` is resolved from `_locales`, so you see what the extension is actually called
 - **Permissions, optional permissions and host permissions** — what it's allowed to do, and where
 - **Every content script entry** — which pages it injects into, and when
 - **Hosts in URLs** — every external host that appears in a literal `http://` or `https://` URL, with the file it appears in. Libraries and platform plumbing are filtered out by domain, not by substring, so `google.com.attacker.example` is not hidden. Pass `--show-filtered` to see what was excluded.
@@ -72,7 +72,7 @@ Edit the constants at the top of the file to change the limits.
 python test_crx_fingerprint.py
 ```
 
-Thirty-three tests, no network access.
+Thirty-five tests, no network access.
 
 Most are regression tests: every case is one that previously gave a wrong answer. Substring domain matches, userinfo spoofing, punycode truncation, IPv6 literals dropped, JavaScript properties reported as hosts, `<all_urls>` not recognised, archive limits, duplicate archive entries.
 
@@ -87,6 +87,7 @@ The rest drive `analyse()` end to end against archives built in memory, with the
 ```
 $ python crx-fingerprint.py ejcfngdpgojodfjcajnglnhppglcfedg
 
+  name in manifest : Cashback Master
   version          : 1.0.0.2
   manifest_version : 3
   permissions      : ['alarms', 'cookies', 'declarativeNetRequestWithHostAccess',

@@ -242,6 +242,26 @@ class EndToEnd(unittest.TestCase):
         self.assertIn("+2 exact fingerprint permission set", out)
         self.assertNotIn("INCOMPLETE", out)
 
+    def test_localised_name_is_resolved_from_locales(self):
+        rc, out = self.analyse([
+            ("manifest.json", manifest(name="__MSG_appName__",
+                                       default_locale="en")),
+            ("_locales/en/messages.json",
+             json.dumps({"appName": {"message": "Cashback Master"}})),
+            ("background.js", 'fetch("https://tp.cbmaster.pro/ty");'),
+        ])
+        self.assertEqual(rc, 0)
+        self.assertIn("Cashback Master", out)
+        self.assertNotIn("__MSG_appName__", out)
+
+    def test_unresolvable_localised_name_is_left_alone(self):
+        rc, out = self.analyse([
+            ("manifest.json", manifest(name="__MSG_appName__")),
+            ("background.js", "var x=1;"),
+        ])
+        self.assertEqual(rc, 0)
+        self.assertIn("__MSG_appName__", out)
+
     def test_benign_extension_does_not_match(self):
         rc, out = self.analyse([
             ("manifest.json", manifest(permissions=["storage"],

@@ -203,6 +203,32 @@ def crx_to_zip(data):
     return zipfile.ZipFile(io.BytesIO(data[i:]))
 
 
+def resolve_localised_name(z, infos, man):
+    """A manifest name of __MSG_key__ lives in _locales. Resolve it, or keep it.
+
+    Read by ZipInfo and size checked, like every other read here.
+    """
+    name = man.get("name")
+    if not (isinstance(name, str) and name.startswith("__MSG_")):
+        return name
+    key = name[6:].rstrip("_").lower()
+    by_name = {i.filename: i for i in infos}
+    for loc in (man.get("default_locale"), "en_US", "en", "en_GB"):
+        if not loc:
+            continue
+        info = by_name.get(f"_locales/{loc}/messages.json")
+        if info is None or info.file_size > MAX_MEMBER_BYTES:
+            continue
+        try:
+            msgs = json.loads(z.read(info).decode("utf-8-sig"))
+        except Exception:
+            continue
+        for k, v in msgs.items():
+            if k.lower() == key and isinstance(v, dict) and v.get("message"):
+                return v["message"]
+    return name
+
+
 def check_archive_limits(infos):
     """Return a list of limit breaches. Non-empty means do not process."""
     problems = []
@@ -274,7 +300,7 @@ def analyse(ext_id, show_filtered=False):
     optional_hosts = man.get("optional_host_permissions", [])
     version = str(man.get("version", "unknown"))
 
-    print(f"  name in manifest : {man.get('name')}")
+    print(f"  name in manifest : {resolve_localised_name(z, infos, man)}")
     print(f"  version          : {version}")
     print(f"  manifest_version : {man.get('manifest_version')}")
     print(f"  permissions      : {sorted(perms)}")
