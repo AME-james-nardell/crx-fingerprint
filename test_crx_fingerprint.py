@@ -14,6 +14,7 @@ import importlib.util
 import io
 import json
 import unittest
+import warnings
 import zipfile
 
 spec = importlib.util.spec_from_file_location("cf", "crx-fingerprint.py")
@@ -89,6 +90,18 @@ class UrlHostParsing(unittest.TestCase):
     def test_real_reference_still_matches(self):
         self.assertTrue(url_matches('"https://tp.cbmaster.pro/ty"', "cbmaster.pro"))
 
+    def test_runtime_built_tld_is_not_reported_as_a_host(self):
+        # "https://www.google." + countryCode
+        self.assertIsNone(cf.url_hostname("https://www.google."))
+        self.assertEqual(cf.partial_hostname("https://www.google."), "www.google")
+
+    def test_a_fully_qualified_name_with_a_path_is_not_partial(self):
+        self.assertEqual(cf.url_hostname("https://l.cbmaster.pro./"), "l.cbmaster.pro")
+        self.assertIsNone(cf.partial_hostname("https://l.cbmaster.pro./"))
+
+    def test_partial_host_cannot_score(self):
+        self.assertFalse(url_matches('"https://tp.cbmaster."', "cbmaster.pro"))
+
     def test_ipv6_literal_is_not_dropped(self):
         js = 'fetch("https://[2001:db8::1]/collect"); fetch("http://[::1]:8080/x")'
         hosts = [cf.url_hostname(m.group(0)) for m in cf.URL_CANDIDATE.finditer(js)]
@@ -163,9 +176,11 @@ class ArchiveLimits(unittest.TestCase):
 class DuplicateEntries(unittest.TestCase):
     def test_read_by_zipinfo_returns_the_checked_entry(self):
         b = io.BytesIO()
-        with zipfile.ZipFile(b, "w") as zf:
-            zf.writestr("dup.js", "small")
-            zf.writestr("dup.js", "LARGE" * 200)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")   # the duplicate name is the point
+            with zipfile.ZipFile(b, "w") as zf:
+                zf.writestr("dup.js", "small")
+                zf.writestr("dup.js", "LARGE" * 200)
         b.seek(0)
         z = zipfile.ZipFile(b)
         entries = [i for i in z.infolist() if i.filename == "dup.js"]

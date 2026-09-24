@@ -109,19 +109,41 @@ BARE_TOKEN = re.compile(
 )
 
 
-def url_hostname(candidate):
-    """Hostname of a URL string, or None. Strips userinfo, port and case."""
+def _split_host(candidate):
+    """(hostname, is_partial) for a URL string, or (None, False)."""
     try:
-        h = urlsplit(candidate).hostname
+        parts = urlsplit(candidate)
+        h = parts.hostname
     except ValueError:
-        return None
+        return None, False
     if not h:
-        return None
-    h = h.strip().rstrip(".").lower()
+        return None, False
+    raw = h.strip().lower()
+    # A literal that stops at a dot with nothing after it is a URL whose last
+    # label is concatenated at runtime, e.g. "https://www.google." + tld. What
+    # is in the file is a fragment, not a host, and reporting it as a host is
+    # misleading. A trailing dot followed by a path is just a fully qualified
+    # name and is fine.
+    partial = raw.endswith(".") and not (parts.path or parts.query or parts.fragment)
+    h = raw.rstrip(".")
     # A dot means a domain name or an IPv4 address. A colon means an IPv6
     # literal, whose brackets urlsplit has already stripped. Anything with
     # neither is not a host worth reporting.
-    return h if ("." in h or ":" in h) else None
+    if not ("." in h or ":" in h):
+        return None, False
+    return h, partial
+
+
+def url_hostname(candidate):
+    """Hostname of a URL string, or None. Strips userinfo, port and case."""
+    h, partial = _split_host(candidate)
+    return None if partial else h
+
+
+def partial_hostname(candidate):
+    """Host fragment from a URL whose last label is built at runtime, or None."""
+    h, partial = _split_host(candidate)
+    return h if partial else None
 
 
 # Host permission pattern: scheme://host/path. Chrome ignores the path for
@@ -276,6 +298,7 @@ def analyse(ext_id, show_filtered=False):
     # url_hosts are reported. bare_hits are only used to notice a known
     # fingerprint domain written without a scheme.
     url_hosts = {}    # host -> first file it appeared in
+    partial_hosts = {}  # incomplete host -> first file it appeared in
     bare_hits = {}    # host -> first file it appeared in
     unreadable = []
     skipped = []
@@ -298,6 +321,10 @@ def analyse(ext_id, show_filtered=False):
             host = url_hostname(m.group(0))
             if host:
                 url_hosts.setdefault(host, name)
+            else:
+                frag = partial_hostname(m.group(0))
+                if frag:
+                    partial_hosts.setdefault(frag, name)
         for m in BARE_TOKEN.finditer(text):
             host = m.group(1).rstrip(".").lower()
             if host in url_hosts or host in bare_hits:
@@ -337,6 +364,10 @@ def analyse(ext_id, show_filtered=False):
             print(f"     {h:44} {interesting[h]}")
     else:
         print("  HOSTS IN URLS    : none")
+    if partial_hosts:
+        print("  PARTIAL HOSTS    :  (last label built at runtime, not in the source)")
+        for h in sorted(partial_hosts):
+            print(f"     {h + '.*':44} {partial_hosts[h]}")
     if bare_hits:
         print("  BARE REFERENCES  :  (known domains written without a scheme)")
         for h in sorted(bare_hits):

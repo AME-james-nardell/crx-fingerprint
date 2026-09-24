@@ -37,6 +37,7 @@ For each extension:
 - **Permissions, optional permissions and host permissions** — what it's allowed to do, and where
 - **Every content script entry** — which pages it injects into, and when
 - **Hosts in URLs** — every external host that appears in a literal `http://` or `https://` URL, with the file it appears in. Libraries and platform plumbing are filtered out by domain, not by substring, so `google.com.attacker.example` is not hidden. Pass `--show-filtered` to see what was excluded.
+- **Partial hosts** — a URL literal that stops at a dot because its last label is concatenated at runtime, such as `"https://www.google." + countryCode`. Listed separately and never scored, because the host in the file is a fragment rather than a host.
 - **Bare references** — a known fingerprint domain written without a scheme. Reported separately, because ordinary JavaScript such as `document.body` has the same shape as a hostname and should never be presented as an external host.
 - **Fingerprint match, with the reason for every point awarded**
 
@@ -71,7 +72,7 @@ Edit the constants at the top of the file to change the limits.
 python test_crx_fingerprint.py
 ```
 
-Thirty tests, no network access.
+Thirty-three tests, no network access.
 
 Most are regression tests: every case is one that previously gave a wrong answer. Substring domain matches, userinfo spoofing, punycode truncation, IPv6 literals dropped, JavaScript properties reported as hosts, `<all_urls>` not recognised, archive limits, duplicate archive entries.
 
@@ -146,7 +147,8 @@ A `STRONG MATCH` means the package resembles that pattern. **It is not an accusa
 
 ## Limitations
 
-- Removed or unpublished extensions can't be downloaded from the update endpoint.
+- Removed or unpublished extensions can't be downloaded from the update endpoint. Only the Chrome Web Store is queried, so an extension published solely to the Edge or Firefox stores will not resolve.
+- URLs assembled at runtime appear as fragments, because the tool reports the strings that are actually in the file. `"https://www.google." + tld` is caught and listed separately under `PARTIAL HOSTS`. `"https://app.ahrefs" + ".com"` cannot be told apart from a real host and is reported as `app.ahrefs`. Read the host list with that in mind.
 - Domains fetched at runtime rather than hardcoded won't appear. Several extensions pull their configuration after install, so an empty host list doesn't mean the extension talks to nobody.
 - Packaged `declarative_net_request` rulesets are not yet parsed. A rule file can contain thousands of redirect rules that this tool does not currently read.
 - Only text-like members are scanned: `.js`, `.mjs`, `.json`, `.html`, `.htm`, `.css`, `.txt`, `.map`. A host hardcoded in a WebAssembly module or any other extension is not seen.
