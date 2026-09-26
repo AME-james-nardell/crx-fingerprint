@@ -502,6 +502,15 @@ def analyse(ext_id, show_filtered=False):
 
 
 def main():
+    # Extension names and hosts are frequently non-Latin, and a Windows console
+    # defaults to a codepage that cannot encode them. Without this, inspecting
+    # an extension called "Али Профи Помощник" dies on the print, not the parse.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser(
         description="Inspect Chrome extensions without installing them.")
     ap.add_argument("ids", nargs="*", help="32-character extension IDs")
