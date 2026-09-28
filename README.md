@@ -152,6 +152,9 @@ A `STRONG MATCH` means the package resembles that pattern. **It is not an accusa
 - URLs assembled at runtime appear as fragments, because the tool reports the strings that are actually in the file. `"https://www.google." + tld` is caught and listed separately under `PARTIAL HOSTS`. `"https://app.ahrefs" + ".com"` cannot be told apart from a real host and is reported as `app.ahrefs`. Read the host list with that in mind.
 - Domains fetched at runtime rather than hardcoded won't appear. Several extensions pull their configuration after install, so an empty host list doesn't mean the extension talks to nobody.
 - Packaged `declarative_net_request` rulesets are not yet parsed. A rule file can contain thousands of redirect rules that this tool does not currently read.
+- **Redirect rules are not always in the package at all.** At least one of the extensions this fingerprint was built from ships with no rules and fetches them from its own server after install, registering them as **session** rules. `getDynamicRules()` returns zero; `getSessionRules()` is what holds them, and they are rebuilt every time the browser starts. Inspecting the published package will find nothing, because at that point there is nothing to find.
+- **Rule IDs are per install and not stable.** The same merchant domain appeared under different rule IDs in different profiles of the same extension version. If you are comparing notes with someone else, match on the domain rather than the ID.
+- **The rule set can vary by connection.** In testing, a US IP received the full rule set with auto-activation enabled, while a connection from Bangkok received nothing at all, same extension version, thirteen minutes apart. Rule counts and domain counts quoted anywhere, including in the articles below, are a snapshot of one install at one moment rather than a fixed property of the extension.
 - Only text-like members are scanned: `.js`, `.mjs`, `.json`, `.html`, `.htm`, `.css`, `.txt`, `.map`. A host hardcoded in a WebAssembly module or any other extension is not seen.
 - Reading the package tells you what the code *can* do, not what it *does*. For that you need `chrome://net-export` and a clean profile.
 
@@ -160,7 +163,7 @@ A `STRONG MATCH` means the package resembles that pattern. **It is not an accusa
 This came out of two investigations into browser extensions that rewrite navigations to insert affiliate tracking:
 
 - [I Typed a Train Company's Address. Six Intermediaries Later, Someone Had Earned a Commission.](https://affiliatemanager.expert/2026/09/21/browser-extension-affiliate-hijacking/)
-- I Typed a Travel Site's Address and Never Got There. *(link to follow)*
+- [I Typed a Travel Site's Address and Never Got There.](https://affiliatemanager.expert/2026/09/28/browser-extension-redirect-rules/)
 
 ## Licence
 
